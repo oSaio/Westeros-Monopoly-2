@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Thrones Monopoly</title>
+<meta name="description" content="A real-time multiplayer Game of Thrones-themed Monopoly, playable with up to eight players." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          void: '#14100c',
+          panel: '#1f1913',
+          bordercol: '#3a2f22',
+          parchment: '#ede4d3',
+          muted: '#a89b82',
+          gold: '#c9a227',
+          crimson: '#7a1f2b',
+        },
+        fontFamily: {
+          display: ['Cinzel', 'serif'],
+          body: ['Inter', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { background-color: #14100c; background-image: radial-gradient(circle at 50% 0%, #241c14 0%, #14100c 60%); }
+  .tile { border: 1px solid #3a2f22; }
+  .tile-name { font-family: 'Cinzel', serif; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #3a2f22; border-radius: 4px; }
+  #board-grid { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); grid-template-rows: repeat(11, minmax(0, 1fr)); }
+  .token { box-shadow: 0 0 0 2px rgba(0,0,0,0.6); }
+</style>
+</head>
+<body class="min-h-screen text-parchment font-body">
+
+  <header class="border-b border-bordercol px-6 py-4 flex items-center justify-between">
+    <h1 class="font-display text-2xl tracking-wide text-gold">Thrones Monopoly</h1>
+    <p id="connection-status" class="text-sm text-muted">Connecting to the Citadel…</p>
+  </header>
+
+  <!-- ============================= LOBBY SCREEN ============================= -->
+  <main id="lobby-screen" class="max-w-3xl mx-auto px-6 py-16">
+    <p class="text-muted mb-10 leading-relaxed">
+      Claim a great house, rally up to seven rivals, and seize the Seven Kingdoms one Gold Dragon at a time.
+      Create a room to host, or join one with a code from a friend.
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-8">
+      <section class="bg-panel border border-bordercol rounded-lg p-6">
+        <h2 class="font-display text-lg text-gold mb-4">Create Game</h2>
+        <label class="block text-sm text-muted mb-1" for="create-name">Your name</label>
+        <input id="create-name" type="text" maxlength="20" placeholder="Eddard Stark"
+               class="w-full mb-4 bg-void border border-bordercol rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold" />
+        <label class="block text-sm text-muted mb-1" for="create-house">Sworn to House</label>
+        <select id="create-house" class="w-full mb-6 bg-void border border-bordercol rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold">
+          <option>Stark</option><option>Lannister</option><option>Targaryen</option><option>Baratheon</option>
+          <option>Tyrell</option><option>Martell</option><option>Arryn</option><option>Greyjoy</option>
+        </select>
+        <button id="create-game-btn" class="w-full bg-gold text-void font-semibold rounded py-2 hover:brightness-110 transition">
+          Found a New Game
+        </button>
+      </section>
+
+      <section class="bg-panel border border-bordercol rounded-lg p-6">
+        <h2 class="font-display text-lg text-gold mb-4">Join Game</h2>
+        <label class="block text-sm text-muted mb-1" for="join-name">Your name</label>
+        <input id="join-name" type="text" maxlength="20" placeholder="Cersei Lannister"
+               class="w-full mb-4 bg-void border border-bordercol rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold" />
+        <label class="block text-sm text-muted mb-1" for="join-house">Sworn to House</label>
+        <select id="join-house" class="w-full mb-4 bg-void border border-bordercol rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold">
+          <option>Lannister</option><option>Stark</option><option>Targaryen</option><option>Baratheon</option>
+          <option>Tyrell</option><option>Martell</option><option>Arryn</option><option>Greyjoy</option>
+        </select>
+        <label class="block text-sm text-muted mb-1" for="join-code">Room code</label>
+        <input id="join-code" type="text" maxlength="4" placeholder="ABCD"
+               class="w-full mb-6 bg-void border border-bordercol rounded px-3 py-2 uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-gold" />
+        <button id="join-game-btn" class="w-full bg-transparent border border-gold text-gold font-semibold rounded py-2 hover:bg-gold hover:text-void transition">
+          Join with Raven-Sent Code
+        </button>
+      </section>
+    </div>
+
+    <p id="lobby-error" class="text-crimson mt-6 hidden"></p>
+  </main>
+
+  <!-- ============================= LOBBY WAITING ROOM ============================= -->
+  <main id="waiting-screen" class="max-w-3xl mx-auto px-6 py-16 hidden">
+    <div class="bg-panel border border-bordercol rounded-lg p-6">
+      <h2 class="font-display text-lg text-gold mb-2">Room Code</h2>
+      <div class="flex items-center gap-3 mb-6">
+        <span id="room-code-display" class="font-display text-3xl tracking-[0.3em]">----</span>
+        <button id="copy-link-btn" class="text-sm border border-bordercol rounded px-3 py-1 hover:border-gold hover:text-gold transition">
+          Copy Invite Link
+        </button>
+      </div>
+      <h3 class="text-sm text-muted mb-2">Players in the hall (2-8 needed to begin)</h3>
+      <ul id="waiting-players-list" class="space-y-1 mb-6"></ul>
+      <button id="start-game-btn" class="bg-gold text-void font-semibold rounded py-2 px-6 hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed">
+        Begin the Game
+      </button>
+      <p id="waiting-hint" class="text-muted text-sm mt-3">Waiting for the host to begin…</p>
+    </div>
+  </main>
+
+  <!-- ============================= GAME SCREEN ============================= -->
+  <main id="game-screen" class="hidden max-w-[1600px] mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] gap-4">
+
+    <!-- Player roster -->
+    <aside class="bg-panel border border-bordercol rounded-lg p-4 order-2 lg:order-1">
+      <h2 class="font-display text-gold mb-3">The Great Houses</h2>
+      <ul id="players-list" class="space-y-3"></ul>
+    </aside>
+
+    <!-- Board + controls -->
+    <section class="order-1 lg:order-2 flex flex-col items-center gap-4">
+      <div id="board-grid" class="w-full max-w-[720px] aspect-square bg-void rounded-lg overflow-hidden border border-bordercol"></div>
+
+      <div class="w-full max-w-[720px] bg-panel border border-bordercol rounded-lg p-4">
+        <p id="turn-banner" class="font-display text-gold mb-3 text-center">Waiting…</p>
+
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <div id="dice-display" class="font-display text-2xl text-parchment min-w-[4rem] text-center">🎲 🎲</div>
+          <button id="roll-dice-btn" class="bg-gold text-void font-semibold rounded py-2 px-5 hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            Roll the Dice
+          </button>
+          <button id="pay-jail-btn" class="hidden border border-crimson text-crimson rounded py-2 px-4 hover:bg-crimson hover:text-parchment transition">
+            Pay 50 to Leave Black Cells
+          </button>
+          <button id="use-jail-card-btn" class="hidden border border-gold text-gold rounded py-2 px-4 hover:bg-gold hover:text-void transition">
+            Use Pardon Card
+          </button>
+          <button id="end-turn-btn" class="border border-bordercol rounded py-2 px-5 hover:border-gold hover:text-gold transition disabled:opacity-40 disabled:cursor-not-allowed">
+            End Turn
+          </button>
+        </div>
+
+        <!-- Pending purchase decision -->
+        <div id="purchase-panel" class="hidden mt-4 border-t border-bordercol pt-4 text-center">
+          <p id="purchase-text" class="mb-3"></p>
+          <div class="flex justify-center gap-3">
+            <button id="buy-btn" class="bg-gold text-void font-semibold rounded py-2 px-5 hover:brightness-110 transition">Purchase</button>
+            <button id="decline-btn" class="border border-bordercol rounded py-2 px-5 hover:border-crimson hover:text-crimson transition">Decline</button>
+          </div>
+        </div>
+
+        <!-- Property management -->
+        <div id="property-panel" class="mt-4 border-t border-bordercol pt-4 hidden">
+          <h3 class="text-sm text-muted mb-2">Your Holdings</h3>
+          <ul id="owned-properties-list" class="space-y-2 text-sm max-h-40 overflow-y-auto"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chat / event log -->
+    <aside class="bg-panel border border-bordercol rounded-lg p-4 order-3 flex flex-col h-[600px] lg:h-auto">
+      <h2 class="font-display text-gold mb-3">Raven's Log</h2>
+      <ul id="event-log" class="flex-1 overflow-y-auto space-y-1 text-sm text-muted mb-3 pr-1"></ul>
+      <form id="chat-form" class="flex gap-2">
+        <input id="chat-input" type="text" maxlength="280" placeholder="Send word to your rivals…"
+               class="flex-1 bg-void border border-bordercol rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold" />
+        <button type="submit" class="bg-gold text-void rounded px-4 text-sm font-semibold hover:brightness-110 transition">Send</button>
+      </form>
+    </aside>
+  </main>
+
+  <!-- ============================= GAME OVER ============================= -->
+  <div id="game-over-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center px-4">
+    <div class="bg-panel border border-gold rounded-lg p-8 max-w-md text-center">
+      <h2 class="font-display text-2xl text-gold mb-3">The Realm Has a Ruler</h2>
+      <p id="game-over-text" class="text-parchment mb-6"></p>
+      <button id="return-to-lobby-btn" class="bg-gold text-void font-semibold rounded py-2 px-6 hover:brightness-110 transition">Return to the Hall</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
